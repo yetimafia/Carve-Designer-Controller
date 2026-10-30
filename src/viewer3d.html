@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>@@TITLE@@ - Carve 3D preview</title>
+<style>
+  :root { --bg:#14171a; --panel:#1d2227ee; --line:#323941; --text:#e6edf3; --dim:#8b949e; --accent:#f0a030; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text);
+              font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow:hidden; }
+  #c { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:grab; }
+  #c.drag { cursor:grabbing; }
+  #hud { position:fixed; top:12px; left:12px; right:12px; display:flex; gap:12px; align-items:flex-start;
+         justify-content:space-between; pointer-events:none; flex-wrap:wrap; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 14px;
+          backdrop-filter:blur(6px); pointer-events:auto; }
+  #title { font-size:16px; font-weight:600; }
+  #sub { color:var(--dim); font-size:12px; margin-top:2px; }
+  #stats { display:grid; grid-template-columns:auto auto; gap:2px 14px; font-variant-numeric:tabular-nums; font-size:13px; }
+  #stats span:nth-child(odd) { color:var(--dim); }
+  #legend { display:flex; gap:12px; flex-wrap:wrap; font-size:12px; color:var(--dim); margin-top:8px; }
+  #legend i { display:inline-block; width:14px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+  #bar { position:fixed; left:12px; right:12px; bottom:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #bar .grow { flex:1 1 260px; display:flex; align-items:center; gap:10px; min-width:200px; }
+  button { background:#2b3238; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px;
+           font:inherit; cursor:pointer; }
+  button:hover { background:#353d45; }
+  button.primary { background:var(--accent); color:#1a1205; border-color:var(--accent); font-weight:600; min-width:84px; }
+  input[type=range] { accent-color:var(--accent); width:100%; }
+  select { background:#2b3238; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:6px 8px; font:inherit; }
+  label.chk { display:flex; gap:6px; align-items:center; color:var(--dim); font-size:13px; white-space:nowrap; }
+  #layerbox { display:flex; align-items:center; gap:8px; min-width:190px; color:var(--dim); font-size:13px; }
+  #layerbox input { width:110px; }
+  #foot { position:fixed; right:14px; bottom:74px; color:#6b737c; font-size:11px; pointer-events:none; text-align:right; }
+  #fail { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:30px; text-align:center; }
+  body.rec #hud, body.rec #bar, body.rec #foot, body.rec #recpanel { display:none !important; }
+  body.rec #c { inset:auto; left:50%; top:50%; transform:translate(-50%,-50%); cursor:default;
+                width:min(100vw, calc(100vh * 16 / 9)); height:min(100vh, calc(100vw * 9 / 16)); }
+  #recbadge { position:fixed; top:12px; left:50%; transform:translateX(-50%); display:none; gap:12px; align-items:center;
+              z-index:5; }
+  body.rec #recbadge { display:flex; }
+  #recbadge b { color:#ff5b5b; }
+  #recpanel { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:16px; z-index:10;
+              background:#0009; }
+  #recpanel.open { display:flex; }
+  #recpanel .card { width:min(460px, 100%); max-height:100%; overflow:auto; }
+  #recpanel h3 { margin:0 0 6px; font-size:16px; }
+  #recpanel .row { display:flex; gap:10px; align-items:center; margin:8px 0; color:var(--dim); }
+  #recpanel .row select { flex:1; }
+  #recpanel .note { color:var(--dim); font-size:12px; margin-top:8px; }
+  #recpanel video { width:100%; border-radius:8px; margin-top:8px; background:#000; }
+  a.btn { display:inline-block; text-decoration:none; background:#2b3238; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; }
+  a.btn:hover { background:#353d45; }
+  #recpanel a.btn { display:inline-block; text-decoration:none; background:var(--accent); color:#1a1205; font-weight:600;
+                    border-radius:8px; padding:8px 14px; }
+  @media (max-width:640px) { #hud { top:8px; left:8px; right:8px; } #bar { left:8px; right:8px; bottom:8px; } #foot { display:none; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div class="card">
+    <div id="title"></div>
+    <div id="sub"></div>
+    <div id="legend">
+      <span id="lg-dig"><i style="background:linear-gradient(90deg,#f0a030,#4fd37a,#3b8fe8)"></i>to dig (colour = layer)</span>
+      <span id="lg-skip"><i style="background:#d9534f"></i>skipped (not connected)</span>
+      <span id="lg-place"><i style="background:#9aa0a6"></i>placed blocks &amp; torches</span>
+      <span><i id="lg-turtle" style="background:#6fe36f"></i>turtle</span>
+      <span id="lg-chest"><i style="background:#a0682d"></i>chest</span>
+    </div>
+  </div>
+  <div class="card"><div id="stats"></div></div>
+  <div class="card" id="sharebar" style="display:none">
+    <div style="font-weight:600;margin-bottom:6px">Shared design</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a class="btn" id="sh-gallery" href="#">All designs</a>
+      <button id="sh-copy">Copy turtle command</button>
+      <a class="btn" id="sh-file" href="#" download>Download design file</a>
+    </div>
+    <div id="sh-note" style="color:var(--dim);font-size:12px;margin-top:6px;max-width:300px"></div>
+  </div>
+</div>
+<div id="foot">drag = rotate &middot; right-drag / shift-drag = move &middot; wheel / pinch = zoom &middot; space = play/pause</div>
+<div id="bar">
+  <div class="card" style="display:flex;gap:8px;align-items:center">
+    <button id="reset" title="Back to the start">&#9198;</button>
+    <button id="play" class="primary">Play</button>
+    <button id="back" title="One step back (left arrow)">&#9664;</button>
+    <button id="fwd" title="One step forward (right arrow)">&#9654;</button>
+  </div>
+  <div class="card grow"><input id="seek" type="range" min="0" max="1" value="0" step="1"><span id="pct" style="min-width:42px;text-align:right;color:var(--dim)">0%</span></div>
+  <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <label class="chk">Speed
+      <select id="speed">
+        <option value="3">Slow</option><option value="10">Normal</option><option value="40" selected>Fast</option>
+        <option value="150">Faster</option><option value="600">Very fast</option><option value="2500">Blazing</option>
+      </select></label>
+    <button id="recbtn" title="Save the replay as a short video you can send on Discord">Record video</button>
+    <label class="chk">Skin <select id="skin"></select></label>
+    <span id="skincols" style="display:none" class="chk"><input type="color" id="skinbody" title="Body colour"><input type="color" id="skinaccent" title="Accent colour"></span>
+    <label class="chk"><input type="checkbox" id="tex" checked>Textures</label>
+    <label class="chk"><input type="checkbox" id="follow" checked>Follow turtle</label>
+    <span id="layerbox">Layers 1&ndash;<b id="layerval"></b><input type="range" id="layer" min="1" max="1" value="1" step="1"></span>
+  </div>
+</div>
+<div id="fail" class="card"></div>
+<div id="recbadge" class="card"><b>&#9679; REC</b><span id="rectime">0s</span><button id="reccancel">Cancel</button></div>
+<div id="recpanel">
+  <div class="card">
+    <h3>Save as a video</h3>
+    <div id="recform">
+      <div class="row">Length
+        <select id="reclen"><option value="10">10 seconds</option><option value="20">20 seconds</option>
+          <option value="30" selected>30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select></div>
+      <div class="row">File size
+        <select id="recmb"><option value="9" selected>Fits Discord (under 10 MB)</option><option value="24">Better quality (up to 25 MB)</option>
+          <option value="48">Highest quality (up to 50 MB)</option></select></div>
+      <div class="row">The whole route is sped up to fit the length, and the camera slowly circles the build.</div>
+      <div class="note">Keep this tab open and in front while it records. It plays once in real time, so a 30 second video takes 30 seconds.</div>
+      <div class="row" style="justify-content:flex-end"><button id="recclose">Close</button><button id="recstart" class="primary">Start recording</button></div>
+    </div>
+    <div id="recresult" style="display:none"></div>
+  </div>
+</div>
+
+<script>@@THREE@@</script>
+<script>@@TURTLE3D@@</script>
+<script>
+"use strict";
+var DATA = @@DATA@@;
+(function () {
+  var D = DATA, W = D.w, DEP = D.d, H = D.h;
+  var $ = function (id) { return document.getElementById(id); };
+  var FACE_NAMES = ["", "forward", "right", "back", "left"];
+  var FACE_YAW = [0, 0, -Math.PI / 2, Math.PI, Math.PI / 2];
+  var SECONDS_PER_ACTION = 0.4;
+
+  $("title").textContent = D.name;
+  if (D.share) {
+    $("sharebar").style.display = "";
+    $("sh-gallery").href = D.share.gallery;
+    $("sh-file").href = D.share.design;
+    $("sh-file").setAttribute("download", D.share.slug + ".json");
+    $("sh-note").textContent = "To dig this: type  " + D.share.cmd + "  on a turtle with the Carve menu installed. " +
+      "To edit it, open Carve Designer and use  Open from link  with this page's address.";
+    $("sh-copy").onclick = function () {
+      var t = D.share.cmd;
+      var ok = function () { $("sh-copy").textContent = "Copied!"; setTimeout(function () { $("sh-copy").textContent = "Copy turtle command"; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, function () {});
+      else { var a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand("copy"); ok(); } catch (e) {} a.remove(); }
+    };
+  }
+  $("sub").textContent = D.pattern + "  ·  torches: " + D.torches + "  ·  " + W + " × " + DEP + " × " + H;
+
+  var canvas = $("c"), renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  } catch (e) {
+    var f = $("fail"); f.style.display = "flex";
+    f.textContent = "This page needs WebGL, and your browser or device has it turned off.";
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(0x14171a);
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.62));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.85);
+  sun.position.set(0.6, 1, 0.8);
+  scene.add(sun);
+  var clip = new THREE.Plane(new THREE.Vector3(0, -1, 0), H + 0.5);
+  renderer.clippingPlanes = [clip];
+
+  // three uses (x, y, -z): x right, y up, -z forward
+  function P(x, y, z) { return new THREE.Vector3(x, y, -z); }
+  function key(x, y, z) { return x + 256 * (z + 256 * y); }
+
+  // ---- the box
+  var cx = (W + 1) / 2, cy = (H + 1) / 2, cz = -(DEP + 1) / 2;
+  var edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W, H, DEP)),
+                                     new THREE.LineBasicMaterial({ color: 0x4a525b }));
+  edges.position.set(cx, cy, cz);
+  scene.add(edges);
+  var gsize = Math.max(W, DEP) + 6;
+  var grid = new THREE.GridHelper(gsize, gsize, 0x2c333a, 0x23292f);
+  grid.position.set(cx, 0.5, cz);
+  scene.add(grid);
+
+  // ---- cells that get dug
+  var sel = D.sel, nSel = sel.length / 3;
+  var start = D.turtle;
+  var events = D.events, nEv = events.length / 4;
+  var dugEver = {};
+  dugEver[key(start[0], start[1], start[2])] = true;
+  for (var i = 0; i < nEv; i++) if (events[4 * i] === 1) dugEver[key(events[4 * i + 1], events[4 * i + 2], events[4 * i + 3])] = true;
+  var digIdx = {}, skipCells = [], digCells = [];
+  for (i = 0; i < nSel; i++) {
+    var sx = sel[3 * i], sy = sel[3 * i + 1], sz = sel[3 * i + 2], k = key(sx, sy, sz);
+    if (dugEver[k]) { digIdx[k] = digCells.length; digCells.push([sx, sy, sz]); } else skipCells.push([sx, sy, sz]);
+  }
+  var boxGeo = new THREE.BoxGeometry(0.94, 0.94, 0.94);
+  var dummy = new THREE.Object3D(), ZERO = new THREE.Matrix4().makeScale(0, 0, 0), col = new THREE.Color();
+  var digMesh = new THREE.InstancedMesh(boxGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), Math.max(1, digCells.length));
+  var seed = 12345;
+  function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  var digMat = [], rainbow = [], neutral = [];
+  for (i = 0; i < digCells.length; i++) {
+    var c = digCells[i];
+    dummy.position.copy(P(c[0], c[1], c[2])); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+    digMat.push(dummy.matrix.clone());
+    digMesh.setMatrixAt(i, dummy.matrix);
+    col.setHSL(0.08 + 0.5 * (H > 1 ? (c[1] - 1) / (H - 1) : 0), 0.62, 0.5 + (rnd() - 0.5) * 0.1);
+    rainbow.push(col.clone());
+    var sh = 0.86 + rnd() * 0.14;
+    neutral.push(new THREE.Color(sh, sh, sh));
+    digMesh.setColorAt(i, col);
+  }
+  scene.add(digMesh);
+
+  var skipMesh = null;
+  if (skipCells.length) {
+    skipMesh = new THREE.InstancedMesh(boxGeo, new THREE.MeshLambertMaterial({ color: 0xd9534f, transparent: true, opacity: 0.45 }), skipCells.length);
+    for (i = 0; i < skipCells.length; i++) {
+      var s = skipCells[i];
+      dummy.position.copy(P(s[0], s[1], s[2])); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+      skipMesh.setMatrixAt(i, dummy.matrix);
+    }
+    scene.add(skipMesh);
+  } else $("lg-skip").style.display = "none";
+
+  // ---- blocks and torches the turtle places (one mesh per item, drawn with our simplified tile)
+  var place = D.place, nPl = place.length / 4;
+  var groups = {}, torches = [], plIdx = {};
+  for (i = 0; i < nPl; i++) {
+    var slot = place[4 * i + 3], item = D.inv[slot] || "";
+    var pk = key(place[4 * i], place[4 * i + 1], place[4 * i + 2]);
+    if (item.indexOf("torch") >= 0) { plIdx[pk] = { torch: true, n: torches.length }; torches.push(i); }
+    else {
+      var gr = groups[slot] || (groups[slot] = { list: [], mats: [] });
+      plIdx[pk] = { torch: false, slot: slot, n: gr.list.length }; gr.list.push(i);
+    }
+  }
+  function makeTexture(rows) {
+    var cv = document.createElement("canvas"); cv.width = cv.height = 16;
+    var cx = cv.getContext("2d");
+    for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) {
+      var hx = rows[y][x]; if (hx !== "-") { cx.fillStyle = "#" + hx; cx.fillRect(x, y, 1, 1); }
+    }
+    var t = new THREE.CanvasTexture(cv); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
+    return t;
+  }
+  var blockGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9), nBlocks = 0;
+  Object.keys(groups).forEach(function (slot) {
+    var gr = groups[slot], tile = D.tiles && D.tiles[slot];
+    gr.matFlat = new THREE.MeshLambertMaterial({ color: new THREE.Color(D.colors[slot] || "#9aa0a6") });
+    gr.matTex = tile ? new THREE.MeshLambertMaterial({ map: makeTexture(tile), alphaTest: 0.5 }) : gr.matFlat;
+    gr.mesh = new THREE.InstancedMesh(blockGeo, gr.matTex, gr.list.length);
+    for (var j = 0; j < gr.list.length; j++) {
+      var p = gr.list[j];
+      dummy.position.copy(P(place[4 * p], place[4 * p + 1], place[4 * p + 2])); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+      gr.mats.push(dummy.matrix.clone());
+      gr.mesh.setMatrixAt(j, ZERO);
+    }
+    scene.add(gr.mesh); nBlocks += gr.list.length;
+  });
+  var torchMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.2, 0.62, 0.2),
+                     new THREE.MeshBasicMaterial({ color: 0xffe070 }), Math.max(1, torches.length));
+  var torchMat = [];
+  for (i = 0; i < torches.length; i++) {
+    var tp = torches[i];
+    dummy.position.copy(P(place[4 * tp], place[4 * tp + 1] - 0.12, place[4 * tp + 2])); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+    torchMat.push(dummy.matrix.clone()); torchMesh.setMatrixAt(i, ZERO);
+  }
+  scene.add(torchMesh);
+  if (!nPl) $("lg-place").style.display = "none";
+
+  // ---- chest, turtle, trail
+  if (D.chest) {
+    var chest = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.75, 0.85), new THREE.MeshLambertMaterial({ color: 0xa0682d }));
+    chest.position.copy(P(D.chest[0], D.chest[1] - 0.06, D.chest[2]));
+    scene.add(chest);
+  } else $("lg-chest").style.display = "none";
+
+  // ---- the turtle and its skins. Every skin is built from boxes and faces -Z (the direction the turtle looks).
+  var turtle = new THREE.Group();
+  scene.add(turtle);
+  var SKIN_LIST = [["crafty", "Crafty turtle"], ["classic", "Green turtle"], ["bee", "Bee"], ["sea", "Sea turtle"], ["golem", "Iron golem"], ["custom", "Custom colours"]];
+  var SKIN_COLOR = { crafty: "#aab0ba", classic: "#6fe36f", bee: "#f5c518", sea: "#3a9d5a", golem: "#c9c9c4" };
+  var skinState = { name: D.skin || "crafty", body: D.skinBody || "#6fe36f", accent: D.skinAccent || "#1c7c3c" };
+  var skinTick = function () {};
+  function MAT(c, basic) { return basic ? new THREE.MeshBasicMaterial({ color: c }) : new THREE.MeshLambertMaterial({ color: c }); }
+  function BOX(g, w, h, d, c, x, y, z, basic) {
+    var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), MAT(c, basic));
+    m.position.set(x, y, z); g.add(m); return m;
+  }
+  function shade(hex, f) {
+    var c = new THREE.Color(hex); c.multiplyScalar(f); return "#" + c.getHexString();
+  }
+  // the turtle body every "same shape" skin shares: a cube with a face plate and a pickaxe on its right side
+  function turtleBody(g, body, accent, plate) {
+    BOX(g, 0.78, 0.7, 0.78, body, 0, 0, 0);
+    BOX(g, 0.8, 0.1, 0.8, shade(body, 0.7), 0, -0.3, 0);
+    BOX(g, 0.5, 0.04, 0.5, shade(body, 1.18), 0, 0.37, 0.05);
+    BOX(g, 0.34, 0.34, 0.3, accent, 0, 0, -0.52);
+    BOX(g, 0.62, 0.42, 0.04, plate || "#14301a", 0, 0.05, -0.4);
+    BOX(g, 0.1, 0.1, 0.05, "#f4f4f4", -0.17, 0.12, -0.425, true);
+    BOX(g, 0.1, 0.1, 0.05, "#f4f4f4", 0.17, 0.12, -0.425, true);
+    BOX(g, 0.05, 0.07, 0.05, "#101316", -0.17, 0.12, -0.45, true);
+    BOX(g, 0.05, 0.07, 0.05, "#101316", 0.17, 0.12, -0.45, true);
+    BOX(g, 0.2, 0.03, 0.05, "#101316", 0, -0.06, -0.42, true);
+    // pickaxe
+    var pick = new THREE.Group();
+    BOX(pick, 0.05, 0.5, 0.05, "#7a5230", 0, 0, 0);
+    BOX(pick, 0.05, 0.08, 0.34, "#9fb7c4", 0, 0.24, 0);
+    pick.position.set(0.5, 0.05, -0.12); pick.rotation.x = -0.5;
+    g.add(pick);
+    return pick;
+  }
+  var SKIN_BUILD = {
+    crafty: function (g) {
+      var m = CarveTurtle.make(THREE, D.skinSeed || 0);
+      m.position.y = 0.05; g.add(m);
+      return function () {};
+    },
+    classic: function (g) { turtleBody(g, "#6fe36f", "#1c7c3c"); return function () {}; },
+    custom: function (g) { turtleBody(g, skinState.body, skinState.accent); return function () {}; },
+    bee: function (g) {
+      var yellow = "#f6c21c", black = "#1d1a14";
+      turtleBody(g, yellow, black, "#2a2418");
+      [-0.24, 0.02, 0.28].forEach(function (z) {          // the stripes
+        BOX(g, 0.8, 0.72, 0.1, black, 0, 0, z);
+      });
+      BOX(g, 0.04, 0.2, 0.04, black, -0.1, 0.45, -0.5); BOX(g, 0.04, 0.2, 0.04, black, 0.1, 0.45, -0.5);       // antennae
+      BOX(g, 0.09, 0.07, 0.09, "#f6c21c", -0.1, 0.57, -0.5); BOX(g, 0.09, 0.07, 0.09, "#f6c21c", 0.1, 0.57, -0.5);
+      BOX(g, 0.1, 0.1, 0.16, black, 0, -0.05, 0.47);                                                           // stinger
+      var wl = new THREE.Group(), wr = new THREE.Group();
+      var wmat = function () { return new THREE.MeshBasicMaterial({ color: 0xd8f2ff, transparent: true, opacity: 0.62, side: THREE.DoubleSide }); };
+      var w1 = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.02, 0.34), wmat()); w1.position.set(-0.25, 0, 0);
+      var w2 = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.02, 0.34), wmat()); w2.position.set(0.25, 0, 0);
+      wl.add(w1); wr.add(w2); wl.position.set(-0.08, 0.4, 0.1); wr.position.set(0.08, 0.4, 0.1);
+      g.add(wl, wr);
+      return function (t) { var a = Math.sin(t * 38) * 0.45; wl.rotation.z = 0.25 + a; wr.rotation.z = -0.25 - a; };
+    },
+    sea: function (g) {
+      var shell = "#5c8a3a", shellHi = "#78a84a", shellLo = "#3f6428", skin = "#86b552", belly = "#d9d08a";
+      var s = new THREE.Group();
+      BOX(s, 0.78, 0.07, 0.96, belly, 0, -0.17, 0.02);
+      BOX(s, 0.92, 0.17, 1.0, shellLo, 0, -0.07, 0.02);
+      BOX(s, 0.76, 0.15, 0.84, shell, 0, 0.07, 0.02);
+      BOX(s, 0.5, 0.13, 0.58, shellHi, 0, 0.19, 0.0);
+      BOX(s, 0.26, 0.09, 0.3, shell, 0, 0.28, -0.02);
+      [[-0.2, 0.2], [0.2, 0.2], [-0.2, -0.17], [0.2, -0.17]].forEach(function (p) {      // scutes
+        BOX(s, 0.17, 0.02, 0.17, shellLo, p[0], 0.27 - Math.abs(p[0]) * 0.1, p[1] * 0.95);
+      });
+      BOX(s, 0.08, 0.02, 0.6, shellLo, 0, 0.33, -0.02);
+      var head = new THREE.Group();
+      BOX(head, 0.3, 0.24, 0.32, skin, 0, 0, 0);
+      BOX(head, 0.2, 0.06, 0.1, shade(skin, 0.8), 0, -0.06, -0.19);
+      BOX(head, 0.06, 0.06, 0.04, "#101316", -0.1, 0.05, -0.17, true); BOX(head, 0.06, 0.06, 0.04, "#101316", 0.1, 0.05, -0.17, true);
+      head.position.set(0, -0.04, -0.62);
+      s.add(head);
+      BOX(s, 0.14, 0.05, 0.24, skin, 0, -0.05, 0.58);                                    // tail
+      var flips = [];
+      [[-1, -0.22, 0.46, 0.2, 0.74], [1, -0.22, 0.46, 0.2, 0.74], [-1, 0.4, 0.28, 0.2, 0.55], [1, 0.4, 0.28, 0.2, 0.55]].forEach(function (f) {
+        var fl = new THREE.Group();
+        BOX(fl, f[2], 0.06, f[3], skin, f[0] * f[2] / 2, 0, 0);
+        BOX(fl, f[2] * 0.4, 0.07, f[3] * 0.9, shade(skin, 0.82), f[0] * f[2] * 0.8, 0, 0);
+        fl.position.set(f[0] * 0.42, -0.12, f[1]);
+        s.add(fl); flips.push([fl, f[0], f[1] < 0 ? 0 : 1.6]);
+      });
+      s.scale.setScalar(0.8);
+      g.add(s);
+      return function (t) {
+        flips.forEach(function (f) { f[0].rotation.z = f[1] * (0.18 + 0.2 * Math.sin(t * 5 + f[2])); });
+        head.position.z = -0.62 - 0.02 * Math.sin(t * 2.5);
+      };
+    },
+    golem: function (g) {
+      var iron = "#9a968f", ironLo = "#76726d", ironHi = "#aeaaa3", vine = "#4f8a3a", nose = "#8f6b4f";
+      var k = 0.025, y0 = -0.46;
+      var gg = new THREE.Group();
+      function px(w, h, d, c, x, y, z) { return BOX(gg, w * k, h * k, d * k, c, x * k, y0 + y * k, z * k); }
+      px(6, 13, 5, ironLo, -5, 6.5, 0); px(6, 13, 5, ironLo, 5, 6.5, 0);                     // legs
+      px(9, 5, 6, iron, 0, 15.5, 0);                                                         // waist
+      px(18, 12, 11, iron, 0, 24, 0);                                                        // chest
+      px(18, 4, 11.4, ironHi, 0, 28, 0);
+      px(8, 10, 8, iron, 0, 35, -0.5);                                                       // head
+      px(2, 4, 2, nose, 0, 33, -5.5);                                                        // nose
+      px(2.2, 1.6, 1, "#241f1c", -2.4, 36, -4.7); px(2.2, 1.6, 1, "#241f1c", 2.4, 36, -4.7);  // eyes
+      px(8.4, 1.4, 1, ironLo, 0, 37.6, -4.7);                                                // brow
+      px(6, 3, 0.8, vine, -3, 22, -5.8); px(2, 6, 0.8, vine, 4, 20, -5.8); px(4, 2, 0.8, vine, 5, 27, -5.8);   // vines
+      var armL = new THREE.Group(), armR = new THREE.Group();
+      [[armL, -1], [armR, 1]].forEach(function (a) {
+        var m = new THREE.Mesh(new THREE.BoxGeometry(4 * k, 26 * k, 6 * k), MAT(iron)); m.position.y = -13 * k; a[0].add(m);
+        var v = new THREE.Mesh(new THREE.BoxGeometry(4.4 * k, 6 * k, 6.4 * k), MAT(vine)); v.position.y = -7 * k; if (a[1] > 0) a[0].add(v);
+        a[0].position.set(a[1] * 11 * k, y0 + 30 * k, 0); gg.add(a[0]);
+      });
+      g.add(gg);
+      return function (t) {
+        var sw = 0.07 * Math.sin(t * 3);
+        armL.rotation.x = sw; armR.rotation.x = -sw;
+      };
+    }
+  };
+  function setSkin(name) {
+    if (!SKIN_BUILD[name]) name = "crafty";
+    skinState.name = name;
+    for (var i = turtle.children.length - 1; i >= 0; i--) {
+      var ch = turtle.children[i]; turtle.remove(ch);
+      ch.traverse(function (o) { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    }
+    var g = new THREE.Group();
+    skinTick = SKIN_BUILD[name](g) || function () {};
+    turtle.add(g);
+    var sw = $("skin"); if (sw && sw.value !== name) sw.value = name;
+    var cc = $("skincols"); if (cc) cc.style.display = name === "custom" ? "" : "none";
+    var lg = $("lg-turtle"); if (lg) lg.style.background = name === "custom" ? skinState.body : SKIN_COLOR[name];
+  }
+  (function () {
+    var sw = $("skin");
+    if (sw) {
+      SKIN_LIST.forEach(function (s) { var o = document.createElement("option"); o.value = s[0]; o.textContent = s[1]; sw.appendChild(o); });
+      sw.onchange = function () { setSkin(sw.value); };
+    }
+    var cb = $("skinbody"), ca = $("skinaccent");
+    if (cb) { cb.value = skinState.body; cb.oninput = function () { skinState.body = cb.value; if (skinState.name === "custom") setSkin("custom"); }; }
+    if (ca) { ca.value = skinState.accent; ca.oninput = function () { skinState.accent = ca.value; if (skinState.name === "custom") setSkin("custom"); }; }
+    var m = /[#&]skin=(\w+)/.exec(location.hash);
+    setSkin(m ? m[1] : skinState.name);
+  })();
+  var TRAIL = 220, trailPts = [], trailGeo = new THREE.BufferGeometry();
+  trailGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(TRAIL * 3), 3));
+  var trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0x5ad1e6 }));
+  trail.frustumCulled = false;
+  scene.add(trail);
+  var puffs = [];
+  var puffGeo = new THREE.BoxGeometry(1, 1, 1);
+  function puff(x, y, z) {
+    var m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
+    m.position.copy(P(x, y, z)); scene.add(m); puffs.push({ m: m, t: 0 });
+    if (puffs.length > 60) { var o = puffs.shift(); scene.remove(o.m); o.m.material.dispose(); }
+  }
+
+  // ---- simulation state
+  var cur = 0, pos = start.slice(), face = 1, moves = 0, turns = 0, digs = 0, placed = 0, dirty = false;
+  var vis = P(pos[0], pos[1], pos[2]), visYaw = FACE_YAW[1], playing = false, acc = 0, lastStepWasLive = false;
+
+  function setTrail() {
+    var a = trailGeo.attributes.position.array;
+    for (var j = 0; j < trailPts.length; j++) { a[3 * j] = trailPts[j].x; a[3 * j + 1] = trailPts[j].y; a[3 * j + 2] = trailPts[j].z; }
+    trailGeo.setDrawRange(0, trailPts.length); trailGeo.attributes.position.needsUpdate = true;
+  }
+  function reset() {
+    cur = 0; pos = start.slice(); face = 1; moves = turns = digs = placed = 0;
+    for (var j = 0; j < digCells.length; j++) digMesh.setMatrixAt(j, digMat[j]);
+    var sk = digIdx[key(start[0], start[1], start[2])];
+    if (sk !== undefined) digMesh.setMatrixAt(sk, ZERO);
+    Object.keys(groups).forEach(function (sl) { for (var q = 0; q < groups[sl].list.length; q++) groups[sl].mesh.setMatrixAt(q, ZERO); });
+    for (j = 0; j < torches.length; j++) torchMesh.setMatrixAt(j, ZERO);
+    trailPts = [P(pos[0], pos[1], pos[2])]; setTrail();
+    dirty = true;
+  }
+  function step(live) {
+    var b = 4 * cur, t = events[b], x = events[b + 1], y = events[b + 2], z = events[b + 3];
+    if (t === 0) { face = x; turns++; }
+    else if (t === 1) {
+      var di = digIdx[key(x, y, z)];
+      if (di !== undefined) digMesh.setMatrixAt(di, ZERO);
+      digs++; dirty = true; if (live) puff(x, y, z);
+    } else if (t === 2) {
+      pos = [x, y, z]; moves++;
+      trailPts.push(P(x, y, z)); if (trailPts.length > TRAIL) trailPts.shift();
+    } else {
+      var pi = plIdx[key(x, y, z)];
+      if (pi) {
+        if (pi.torch) torchMesh.setMatrixAt(pi.n, torchMat[pi.n]); else groups[pi.slot].mesh.setMatrixAt(pi.n, groups[pi.slot].mats[pi.n]);
+        dirty = true;
+      }
+      placed++;
+    }
+    cur++;
+  }
+  function seek(n) {
+    n = Math.max(0, Math.min(nEv, n));
+    if (n < cur) reset();
+    while (cur < n) step(false);
+    setTrail(); dirty = true; snapTurtle();
+  }
+  function snapTurtle() {
+    vis.copy(P(pos[0], pos[1], pos[2])); visYaw = FACE_YAW[face];
+  }
+
+  // ---- camera (orbit)
+  var target = new THREE.Vector3(cx, cy, cz), tgt = target.clone();
+  var span = Math.max(W, DEP, H);
+  var radius = span * 1.9 + 4, theta = 0.55, phi = 1.05;
+  function placeCamera() {
+    var sp = Math.sin(phi);
+    camera.position.set(target.x + radius * sp * Math.sin(theta), target.y + radius * Math.cos(phi), target.z + radius * sp * Math.cos(theta));
+    camera.lookAt(target);
+  }
+  var ptrs = {}, lastPinch = 0;
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  canvas.addEventListener("pointerdown", function (e) {
+    canvas.setPointerCapture(e.pointerId); ptrs[e.pointerId] = { x: e.clientX, y: e.clientY, b: e.button, sh: e.shiftKey };
+    canvas.classList.add("drag"); lastPinch = 0;
+  });
+  canvas.addEventListener("pointerup", function (e) { delete ptrs[e.pointerId]; canvas.classList.remove("drag"); });
+  canvas.addEventListener("pointercancel", function (e) { delete ptrs[e.pointerId]; canvas.classList.remove("drag"); });
+  canvas.addEventListener("pointermove", function (e) {
+    var p = ptrs[e.pointerId]; if (!p) return;
+    var dx = e.clientX - p.x, dy = e.clientY - p.y, ids = Object.keys(ptrs);
+    if (ids.length >= 2) {
+      var a = ptrs[ids[0]], b = ptrs[ids[1]];
+      var np = { x: e.clientX, y: e.clientY };
+      var o = e.pointerId == ids[0] ? b : a, me = e.pointerId == ids[0] ? a : b;
+      var before = Math.hypot(me.x - o.x, me.y - o.y), after = Math.hypot(np.x - o.x, np.y - o.y);
+      if (before > 0) radius = Math.max(3, Math.min(600, radius * before / Math.max(after, 1)));
+      p.x = e.clientX; p.y = e.clientY; return;
+    }
+    p.x = e.clientX; p.y = e.clientY;
+    if (p.b === 2 || p.b === 1 || p.sh) {
+      var k = radius * 0.0016, right = new THREE.Vector3(), up = new THREE.Vector3();
+      camera.matrix.extractBasis(right, up, new THREE.Vector3());
+      tgt.addScaledVector(right, -dx * k).addScaledVector(up, dy * k);
+      $("follow").checked = false;
+    } else {
+      theta -= dx * 0.008; phi = Math.max(0.08, Math.min(Math.PI - 0.08, phi - dy * 0.008));
+    }
+  });
+  canvas.addEventListener("wheel", function (e) {
+    e.preventDefault(); radius = Math.max(3, Math.min(600, radius * Math.exp(e.deltaY * 0.001)));
+  }, { passive: false });
+
+  // ---- look: rainbow layer colours + flat colours, or textures
+  var digTex = D.digTile ? makeTexture(D.digTile) : null;
+  function applyLook() {
+    var on = $("tex").checked;
+    digMesh.material.map = on && digTex ? digTex : null;
+    digMesh.material.needsUpdate = true;
+    for (var q = 0; q < digCells.length; q++) digMesh.setColorAt(q, on && digTex ? neutral[q] : rainbow[q]);
+    digMesh.instanceColor.needsUpdate = true;
+    Object.keys(groups).forEach(function (sl) { groups[sl].mesh.material = on ? groups[sl].matTex : groups[sl].matFlat; });
+    $("lg-dig").innerHTML = on && digTex ? "<i style=\"background:#7d8590\"></i>to dig" : "<i style=\"background:linear-gradient(90deg,#f0a030,#4fd37a,#3b8fe8)\"></i>to dig (colour = layer)";
+  }
+  $("tex").onchange = applyLook;
+  if (!digTex && !Object.keys(D.tiles || {}).length) $("tex").parentNode.style.display = "none";
+  applyLook();
+
+  // ---- controls
+  var seekEl = $("seek"), playBtn = $("play"), speedEl = $("speed"), layerEl = $("layer");
+  seekEl.max = nEv; layerEl.max = H; layerEl.value = H; $("layerval").textContent = H;
+  if (H < 2) $("layerbox").style.display = "none";
+  function setPlaying(on) {
+    if (on && cur >= nEv) { seek(0); }
+    playing = on; playBtn.textContent = on ? "Pause" : (cur >= nEv ? "Replay" : "Play");
+  }
+  playBtn.onclick = function () { setPlaying(!playing); };
+  $("reset").onclick = function () { setPlaying(false); seek(0); playBtn.textContent = "Play"; };
+  $("fwd").onclick = function () { setPlaying(false); seek(cur + 1); };
+  $("back").onclick = function () { setPlaying(false); seek(cur - 1); };
+  seekEl.oninput = function () { setPlaying(false); seek(parseInt(seekEl.value, 10)); };
+  layerEl.oninput = function () { var v = parseInt(layerEl.value, 10); clip.constant = v + 0.5; $("layerval").textContent = v; };
+  window.addEventListener("keydown", function (e) {
+    if (e.target && e.target.tagName === "SELECT") return;
+    if (e.code === "Space") { e.preventDefault(); setPlaying(!playing); }
+    else if (e.code === "ArrowRight") { setPlaying(false); seek(cur + (e.shiftKey ? 25 : 1)); }
+    else if (e.code === "ArrowLeft") { setPlaying(false); seek(cur - (e.shiftKey ? 25 : 1)); }
+  });
+
+  function fmtTime(s) {
+    s = Math.round(s); var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+    return (h ? h + "h " : "") + (h || m ? m + "m " : "") + r + "s";
+  }
+  var totalDig = digCells.length, lastHud = 0;
+  function hud() {
+    var secs = (moves + digs + turns + placed) * SECONDS_PER_ACTION, all = D.seconds;
+    var rows = [["Dug", digs + " / " + totalDig + (skipCells.length ? "  (" + skipCells.length + " skipped)" : "")]];
+    if (nPl) rows.push(["Placed", placed + " / " + nPl]);
+    rows.push(["Moves", moves + " / " + D.moves], ["Turns", String(turns)],
+              ["Game time", fmtTime(secs) + " / " + fmtTime(all)],
+              ["Turtle", "x" + pos[0] + " y" + pos[1] + " z" + pos[2] + " " + FACE_NAMES[face]]);
+    $("stats").innerHTML = rows.map(function (r) { return "<span>" + r[0] + "</span><span>" + r[1] + "</span>"; }).join("");
+    seekEl.value = cur; $("pct").textContent = (nEv ? Math.floor(100 * cur / nEv) : 100) + "%";
+    if (!playing) playBtn.textContent = cur >= nEv && nEv ? "Replay" : "Play";
+  }
+
+  function resize() {
+    if (recState) return;
+    var w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize); resize();
+
+  // ---- recording a video of the replay (canvas -> MediaRecorder)
+  var recState = null, recHud = null;
+  function pickMime() {
+    if (!window.MediaRecorder) return "";
+    var c = ["video/mp4;codecs=avc1.42E01E", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+    for (var i = 0; i < c.length; i++) if (MediaRecorder.isTypeSupported(c[i])) return c[i];
+    return "";
+  }
+  function drawComposite() {
+    var R = recState, c = R.ctx, W2 = R.W, H2 = R.H;
+    c.drawImage(canvas, 0, 0, W2, H2);
+    var u = H2 / 720;
+    c.fillStyle = "rgba(20,23,26,0.74)"; c.fillRect(16 * u, 16 * u, 500 * u, 64 * u);
+    c.fillStyle = "#e6edf3"; c.font = "600 " + (22 * u) + "px system-ui, sans-serif"; c.textBaseline = "top";
+    c.fillText(D.name, 28 * u, 24 * u);
+    c.fillStyle = "#8b949e"; c.font = (14 * u) + "px system-ui, sans-serif";
+    c.fillText(D.pattern + "  \u00b7  " + W + " \u00d7 " + DEP + " \u00d7 " + H, 28 * u, 54 * u);
+    var line = "Dug " + digs + " / " + totalDig + (nPl ? "     Placed " + placed + " / " + nPl : "");
+    c.font = "600 " + (18 * u) + "px system-ui, sans-serif";
+    var tw = c.measureText(line).width + 32 * u;
+    c.fillStyle = "rgba(20,23,26,0.74)"; c.fillRect(W2 - 16 * u - tw, 16 * u, tw, 44 * u);
+    c.fillStyle = "#e6edf3"; c.fillText(line, W2 - 16 * u - tw + 16 * u, 27 * u);
+    var frac = nEv ? cur / nEv : 1;
+    c.fillStyle = "rgba(20,23,26,0.74)"; c.fillRect(16 * u, H2 - 30 * u, W2 - 32 * u, 14 * u);
+    c.fillStyle = "#f0a030"; c.fillRect(18 * u, H2 - 28 * u, (W2 - 36 * u) * frac, 10 * u);
+    c.fillStyle = "rgba(230,237,243,0.7)"; c.font = (13 * u) + "px system-ui, sans-serif";
+    var mk = "Made with Carve Designer"; c.fillText(mk, W2 - 16 * u - c.measureText(mk).width, H2 - 52 * u);
+  }
+  function recTick(now) {
+    var R = recState, t = (now - R.t0) / 1000;
+    var want = t < R.intro ? 0 : Math.min(nEv, Math.floor(nEv * Math.min(1, (t - R.intro) / R.playSec)));
+    var moved = 0;
+    while (cur < want) { step(R.speed < 60); moved++; }
+    if (moved) setTrail();
+    theta = R.theta0 + t * R.spin;
+    R.t = t;
+  }
+  function recordVideo(o) {
+    return new Promise(function (resolve, reject) {
+      var mime = pickMime();
+      if (!mime) { reject(new Error("This browser can't record video. Try Chrome, Edge or Firefox.")); return; }
+      var T = Math.max(3, o.seconds || 30), W2 = o.width || 1280, H2 = Math.round(W2 * 9 / 16);
+      var bps = Math.max(300000, Math.min(16000000, Math.floor((o.mb || 9) * 8e6 * 0.9 / T)));
+      setPlaying(false); seek(0);
+      var comp = document.createElement("canvas"); comp.width = W2; comp.height = H2;
+      var stream = comp.captureStream(30), chunks = [], mr;
+      try { mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bps }); }
+      catch (e) { reject(e); return; }
+      var wasFollow = $("follow").checked; $("follow").checked = false;
+      document.body.classList.add("rec");
+      renderer.setPixelRatio(1); renderer.setSize(W2, H2, false);
+      camera.aspect = W2 / H2; camera.updateProjectionMatrix();
+      target.set(cx, cy, cz); tgt.copy(target);
+      var intro = 0.8, outro = 1.6, playSec = Math.max(1, T - intro - outro);
+      recState = { ctx: comp.getContext("2d"), W: W2, H: H2, t0: performance.now(), T: T, intro: intro, playSec: playSec,
+                   speed: nEv / playSec, theta0: theta, spin: 0.2, t: 0, cancelled: false };
+      function cleanup() {
+        recState = null; document.body.classList.remove("rec");
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); resize();
+        $("follow").checked = wasFollow;
+      }
+      mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      mr.onstop = function () {
+        var cancelled = recState && recState.cancelled; cleanup();
+        if (cancelled) { reject(new Error("cancelled")); return; }
+        resolve({ blob: new Blob(chunks, { type: mime.split(";")[0] }), mime: mime.split(";")[0], bitrate: bps, seconds: T });
+      };
+      mr.start(500);
+      recHud = setInterval(function () { if (recState) $("rectime").textContent = Math.min(T, Math.round(recState.t)) + " / " + T + " s"; }, 250);
+      recState.stop = function (cancel) { if (cancel) recState.cancelled = true; try { mr.stop(); } catch (e) {} clearInterval(recHud); };
+    });
+  }
+  function openRecPanel(on) { $("recpanel").classList.toggle("open", on); }
+  $("recbtn").onclick = function () {
+    setPlaying(false); $("recform").style.display = ""; $("recresult").style.display = "none"; $("recresult").innerHTML = "";
+    if (!pickMime()) { $("recstart").disabled = true; $("recstart").textContent = "Not supported in this browser"; }
+    openRecPanel(true);
+  };
+  $("recclose").onclick = function () { openRecPanel(false); };
+  $("reccancel").onclick = function () { if (recState) recState.stop(true); };
+  window.addEventListener("keydown", function (e) { if (e.code === "Escape" && recState) recState.stop(true); });
+  $("recstart").onclick = function () {
+    openRecPanel(false);
+    recordVideo({ seconds: parseInt($("reclen").value, 10), mb: parseFloat($("recmb").value) }).then(function (r) {
+      var url = URL.createObjectURL(r.blob), mb = r.blob.size / 1e6;
+      var ext = r.mime === "video/mp4" ? "mp4" : "webm";
+      var fname = (D.name || "carve").replace(/[^A-Za-z0-9_\-]+/g, "_") + "_turtle." + ext;
+      $("recform").style.display = "none"; var out = $("recresult"); out.style.display = "";
+      out.innerHTML = "<video controls loop autoplay muted playsinline src=\"" + url + "\"></video>" +
+        "<div class=\"row\" style=\"justify-content:space-between\"><span>" + mb.toFixed(1) + " MB &middot; " + r.seconds + " s &middot; " + ext.toUpperCase() +
+        "</span><span><a class=\"btn\" download=\"" + fname + "\" href=\"" + url + "\">Download video</a></span></div>" +
+        "<div class=\"note\">" + (mb > 10 ? "That is over Discord's 10 MB limit for free accounts - record again with a shorter length or the 'Fits Discord' size. " : "Small enough to drop straight into Discord. ") +
+        "</div><div class=\"row\" style=\"justify-content:flex-end\"><button id=\"recagain\">Record again</button><button id=\"recdone\">Close</button></div>";
+      $("recagain").onclick = function () { $("recform").style.display = ""; out.style.display = "none"; };
+      $("recdone").onclick = function () { openRecPanel(false); };
+      openRecPanel(true);
+    }, function (err) { if (err && err.message !== "cancelled") { alert("Could not record: " + err.message); } });
+  };
+  if (/(^|[#&])record/.test(location.hash)) { setTimeout(function () { $("recbtn").onclick(); }, 400); }
+
+  reset(); setPlaying(false);
+  var last = performance.now();
+  function frame(now) {
+    var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (recState) recTick(now);
+    else if (playing) {
+      var speed = parseFloat(speedEl.value);
+      acc += dt * speed;
+      var n = 0;
+      while (acc >= 1 && cur < nEv) { step(speed <= 150); acc -= 1; n++; }
+      if (n) setTrail();
+      if (cur >= nEv) { setPlaying(false); acc = 0; }
+    }
+    if (dirty) {
+      digMesh.instanceMatrix.needsUpdate = true; torchMesh.instanceMatrix.needsUpdate = true;
+      Object.keys(groups).forEach(function (sl) { groups[sl].mesh.instanceMatrix.needsUpdate = true; });
+      dirty = false;
+    }
+    var goal = P(pos[0], pos[1], pos[2]), k = 1 - Math.exp(-dt * (playing ? Math.max(8, parseFloat(speedEl.value) * 0.9) : 14));
+    vis.lerp(goal, k);
+    var yawGoal = FACE_YAW[face], dy = yawGoal - visYaw;
+    dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    visYaw += dy * (1 - Math.exp(-dt * 16));
+    turtle.position.copy(vis); turtle.rotation.y = visYaw; skinTick(now / 1000);
+    for (var j = puffs.length - 1; j >= 0; j--) {
+      var pf = puffs[j]; pf.t += dt * 3.2;
+      pf.m.scale.setScalar(1 - 0.7 * Math.min(1, pf.t)); pf.m.material.opacity = 0.7 * (1 - Math.min(1, pf.t));
+      if (pf.t >= 1) { scene.remove(pf.m); pf.m.material.dispose(); puffs.splice(j, 1); }
+    }
+    if ($("follow").checked) tgt.copy(vis);
+    target.lerp(tgt, 1 - Math.exp(-dt * 6));
+    placeCamera();
+    if (now - lastHud > 80 || !playing) { hud(); lastHud = now; }
+    renderer.render(scene, camera);
+    if (recState) {
+      drawComposite();
+      if (recState.t >= recState.T) recState.stop(false);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  window.CARVE_VIEWER = { setSkin: setSkin, skin: function () { return skinState.name; }, record: recordVideo, seek: seek, play: function () { setPlaying(true); }, state: function () {
+    return { cur: cur, n: nEv, pos: pos, face: face, digs: digs, placed: placed, moves: moves, turns: turns, skipped: skipCells.length };
+  } };
+})();
+</script>
+</body>
+</html>

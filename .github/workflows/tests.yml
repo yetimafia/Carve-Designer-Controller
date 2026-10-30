@@ -1,0 +1,19 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: System packages (Tk and a virtual display)
+        run: sudo apt-get update && sudo apt-get install -y python3-tk xvfb
+      - run: pip install lupa pillow
+      - name: Build the single file and check it is up to date
+        run: |
+          python build.py
+          git diff --exit-code carve_designer.py || (echo "carve_designer.py is out of date: run python build.py and commit it" && exit 1)
+      - name: Tests
+        run: xvfb-run -a -s "-screen 0 1400x900x24" python tests/run_tests.py

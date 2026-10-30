@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Carve Fleet</title>
+<style>
+:root{--bg:#f4f1ea;--card:#fffdf8;--ink:#23201a;--mute:#756f62;--line:#ddd6c6;--ok:#2f8f4e;--warn:#c9831a;--bad:#c0392b;--off:#8d8778;--done:#3b6fb6;--accent:#d9792b}
+@media (prefers-color-scheme:dark){:root{--bg:#1d1b17;--card:#27241f;--ink:#eee8da;--mute:#a39c8b;--line:#3b362d;--ok:#5cc47a;--warn:#e8a53a;--bad:#ef6c5b;--off:#8d8778;--done:#6fa0e0;--accent:#f0913f}}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,sans-serif}
+header{padding:16px 16px 4px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:20px}#sum{color:var(--mute);font-size:14px}
+main{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;padding:12px 16px 24px}
+.card{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--off);border-radius:10px;padding:12px}
+.card.idle{border-left-color:var(--done)}.card.working{border-left-color:var(--ok)}.card.attention{border-left-color:var(--warn)}.card.error{border-left-color:var(--bad)}
+.card.finished,.card.stopped{border-left-color:var(--done)}.card.offline{border-left-color:var(--off);opacity:.75}
+.top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.nm{font-weight:650;font-size:16px;overflow-wrap:anywhere}.id{color:var(--mute);font-size:12px;white-space:nowrap}
+.st{display:inline-block;margin:6px 0;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid currentColor}
+.working .st,.idle .st{color:var(--ok)}.attention .st{color:var(--warn)}.error .st{color:var(--bad)}.finished .st,.stopped .st{color:var(--done)}.offline .st,.stopping .st{color:var(--off)}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:4px 0}.bar i{display:block;height:100%;background:var(--accent)}
+.msg{margin:6px 0;overflow-wrap:anywhere}.meta{color:var(--mute);font-size:13px;display:flex;flex-wrap:wrap;gap:4px 14px}
+.btns{margin-top:8px;display:flex;gap:6px}button{font:inherit;padding:4px 10px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:6px;cursor:pointer}
+button:hover{border-color:var(--accent)}button:focus-visible{outline:2px solid var(--accent)}
+nav{display:flex;gap:6px;padding:4px 16px}nav button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+#mapbox{display:none;padding:8px 16px 24px}#mapbox.on{display:block}
+.mapbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:8px;color:var(--mute);font-size:13px}
+.mapbar input[type=number]{width:70px;font:inherit;padding:2px 4px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:4px}
+.act{color:var(--accent);font-style:italic}
+#box3{display:none;padding:8px 16px 24px}#box3.on{display:block}
+#cv3{width:100%;height:min(74vh,720px);background:#0e1016;border:1px solid var(--line);border-radius:8px;touch-action:none;cursor:grab;display:block}
+#info3{margin-top:6px;min-height:2.6em;font-size:14px}#info3 b{font-weight:650}
+canvas{width:100%;height:min(70vh,640px);background:#14130f;border:1px solid var(--line);border-radius:8px;touch-action:none;cursor:grab}
+#tip{color:var(--mute);font-size:13px;margin-top:6px;min-height:1.4em}
+.world{color:var(--ink)}
+#stobox{display:none;padding:8px 16px 24px;max-width:900px}#stobox.on{display:block}
+.krow{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--mute);font-size:13px;margin:4px 0 10px}
+#find{font:inherit;padding:5px 8px;width:min(100%,360px);background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:8px}
+th,td{padding:6px 10px;text-align:left;border-bottom:1px solid var(--line)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td input[type=number]{width:72px;font:inherit;padding:2px 4px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px}
+#sto-msg{min-height:1.4em;margin-top:8px;color:var(--mute)}
+#empty{color:var(--mute);padding:8px 16px;max-width:640px}
+#fobox{display:none;padding:8px 16px 24px}#fobox.on{display:block}
+.fsplit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:760px){.fsplit{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+.panel h2{margin:0 0 8px;font-size:15px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.panel h2 span{color:var(--mute);font-size:12px;font-weight:400}
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;max-width:340px}
+.slot.cg{border-color:#6d8fc4;box-shadow:inset 0 0 0 1px rgba(109,143,196,.35)}.slot.res{border-color:#d9a928;background-color:#5a4410;box-shadow:inset 0 0 14px rgba(255,200,60,.45)}.slot.res.full{background-color:#6b5112}
+.slot.cg i,.slot.res i{opacity:.85}
+.slot{aspect-ratio:1;border:1px solid var(--line);border-radius:7px;padding:4px;display:flex;flex-direction:column;justify-content:space-between;font-size:11px;line-height:1.15;overflow:hidden;background:var(--bg)}
+.slot.full{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55);border-color:transparent}
+.slot.pic{background-color:#2b2f3a;background-repeat:no-repeat;background-position:50% 24%;background-size:40%;image-rendering:pixelated}
+.slot.pic span{margin-top:auto}
+.ico{display:inline-block;width:24px;height:24px;vertical-align:middle;margin-right:8px;border-radius:4px;background-size:contain;background-repeat:no-repeat;background-position:center;image-rendering:pixelated}
+.slot b{font-size:16px;align-self:flex-end;font-variant-numeric:tabular-nums}.slot i{font-style:normal;opacity:.6;font-size:11px}
+.qrow{display:flex;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line)}.qrow:last-child{border-bottom:0}
+.qdot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--off)}
+.qrow.now .qdot{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 30%,transparent)}.qrow.wait .qdot{background:var(--warn)}.qrow.done .qdot{background:var(--done)}
+.qrow.done{color:var(--mute)}.qrow.now{font-weight:650}.qtag{margin-left:auto;font-size:12px;color:var(--mute)}
+#fosel{font:inherit;padding:3px 6px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px}
+</style></head><body>
+<header><h1>Carve Fleet</h1><span id="sum">connecting...</span></header>
+<div id="empty" hidden>No turtle has reported yet. Start a program that was uploaded with live reporting on, and make sure the turtle may reach this address.</div>
+<nav><button id="tabF" class="on">Turtles</button><button id="tabM">Map</button><button id="tab3">3D map</button><button id="tabS">Storage</button><button id="tabO">Inventory</button></nav>
+<main id="grid"></main>
+<section id="mapbox">
+<div class="mapbar">
+<label>View <select id="mode"><option value="top">from above</option><option value="slice">one layer</option></select></label>
+<label id="ylab" hidden>Layer y <input id="ylay" type="number" value="64"></label>
+<button id="home">Centre on turtles</button><span id="mcount"></span>
+</div>
+<canvas id="cv"></canvas>
+<div id="tip">Drag to move, scroll or pinch to zoom. Scouts fill the map in; every turtle with a known start position is a dot.</div>
+</section>
+<section id="box3">
+<div class="mapbar">
+<label>Distance <select id="r3"><option value="24">24 blocks</option><option value="40" selected>40 blocks</option><option value="64">64 blocks</option><option value="96">96 blocks</option></select></label>
+<label>Follow <select id="f3"><option value="">nobody</option></select></label>
+<button id="home3">Centre on turtles</button><span id="c3"></span>
+</div>
+<canvas id="cv3"></canvas>
+<div id="info3">Drag to turn, right-drag or shift-drag to move, scroll or pinch to zoom, click a turtle for details.</div>
+</section>
+<section id="fobox">
+<div class="mapbar"><span id="fotitle">The Foreman has not reported yet.</span><select id="fosel" hidden aria-label="Which turtle"></select></div>
+<div class="fsplit">
+<div class="panel"><h2>Inventory <span id="fonum"></span></h2><div class="slots" id="fogrid"></div></div>
+<div class="panel"><h2>Crafting queue <span id="fonq"></span></h2><div id="foq"></div></div>
+</div>
+</section>
+<section id="stobox">
+<div id="keepers" class="krow">No storage keeper has reported yet. Start a Storage keeper job with live reporting on.</div>
+<input id="find" type="search" placeholder="Search items, e.g. iron" aria-label="Search items">
+<table><thead><tr><th>Item</th><th class="n">In storage</th><th class="n">Stacks</th><th>Get some</th></tr></thead><tbody id="items"></tbody></table>
+<div id="sto-msg" role="status"></div>
+</section>
+<script>
+"use strict";
+const grid=document.getElementById("grid"),sum=document.getElementById("sum"),empty=document.getElementById("empty");
+const LABEL={idle:"Idle, ready for a job",working:"Working",attention:"Needs attention",error:"Error",finished:"Finished",stopped:"Stopped",offline:"Offline",stopping:"Stopping..."};
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
+function ago(s){if(s<5)return"just now";if(s<90)return Math.round(s)+" s ago";if(s<5400)return Math.round(s/60)+" min ago";return Math.round(s/3600)+" h ago"}
+let rows=[];
+const ICON={};                                   // item id -> picture (data URL) or false (no texture: solid colour)
+let iconBusy=false;
+function hexUrl(h){const c=document.createElement("canvas");c.width=c.height=16;const x=c.getContext("2d"),im=x.createImageData(16,16);
+  for(let i=0;i<256;i++){const p=h.substr(i*6,6);if(p[0]==="-")continue;im.data[i*4]=parseInt(p.substr(0,2),16);im.data[i*4+1]=parseInt(p.substr(2,2),16);im.data[i*4+2]=parseInt(p.substr(4,2),16);im.data[i*4+3]=255}
+  x.putImageData(im,0,0);return c.toDataURL()}
+function wantIcons(names,again){
+  const need=[...new Set(names)].filter(n=>n&&!(n in ICON));
+  if(!need.length||iconBusy)return;iconBusy=true;need.forEach(n=>ICON[n]=false);
+  fetch("/icons?names="+encodeURIComponent(need.join(",")),{cache:"no-store"}).then(r=>r.json()).then(d=>{for(const n of need)if(d[n])ICON[n]=hexUrl(d[n])}).catch(()=>{}).finally(()=>{iconBusy=false;again()})}
+function renderForeman(){
+  if(!fobox.classList.contains("on"))return;
+  const who=rows.filter(t=>t.inv),sel=document.getElementById("fosel");
+  if(!who.length){fotitle.textContent="No turtle has reported its inventory yet. Start one and keep live reporting on.";fogrid.replaceChildren();foq.replaceChildren();fonum.textContent=fonq.textContent="";sel.hidden=true;return}
+  if(who.length>1){sel.hidden=false;if(sel.options.length!==who.length)sel.replaceChildren(...who.map(t=>{const o=el("option","",t.label||t.name||("#"+t.id));o.value=t.id;return o}))}else sel.hidden=true;
+  if(invWanted!==null&&who.some(x=>x.id===invWanted)){sel.value=String(invWanted);invWanted=null}
+  const t=who.find(x=>String(x.id)===sel.value)||who[0];
+  fotitle.textContent=(t.label||t.name||("Turtle "+t.id))+" - "+(t.act||t.msg||"");
+  const by={};for(const [s,n,c] of t.inv)by[s]=[n,c];
+  const tiles=[];let used=0;
+  const CG=[1,2,3,5,6,7,9,10,11];
+  for(let s=1;s<=16;s++){const e=by[s],d=el("div","slot"+(e?" full":"")+(t.crafty&&CG.includes(s)?" cg":"")+(t.crafty&&s===16?" res":""));
+    if(e){used++;const pic=ICON[e[0]];
+      if(pic){d.classList.add("pic");d.style.backgroundImage="url("+pic+")"}else d.style.background=colour(e[0]);
+      d.append(el("i","","slot "+s),el("span","",pretty(e[0])),el("b","",String(e[1])))}
+    else d.append(el("i","",t.crafty&&s===16?"result":"slot "+s));
+    tiles.push(d)}
+  fogrid.replaceChildren(...tiles);fonum.textContent=used+" of 16 slots in use"+(t.crafty?" · blue = crafting grid, gold = result":"");invName=t.label||t.name||("Turtle "+t.id);
+  wantIcons(t.inv.map(e=>e[1]),renderForeman);
+  const q=t.q||[],TAGS={now:"now",wait:"waiting",todo:"queued",done:"done"};
+  foq.replaceChildren(...(q.length?q.map(e=>{const r=el("div","qrow "+e.s);r.append(el("span","qdot"),el("span","",e.t),el("span","qtag",TAGS[e.s]));return r}):[el("div","meta","Nothing queued.")]));
+  fonq.textContent=q.filter(e=>e.s!=="done").length+" open";
+}
+function post(path,body){return fetch(path,{method:"POST",body:JSON.stringify(body)}).then(load)}
+function card(t){
+  const c=el("div","card "+t.state);
+  const top=el("div","top");
+  top.append(el("span","nm",t.label||t.name||("Turtle "+t.id)),el("span","id","#"+t.id+" · "+t.kind));
+  c.append(top,el("span","st",LABEL[t.state]||t.state));
+  if(t.total>0){const b=el("div","bar"),i=el("i");i.style.width=Math.min(100,100*t.n/t.total)+"%";b.append(i);c.append(b,el("div","meta",t.n+" / "+t.total))}
+  if(t.name&&t.label&&t.label!==t.name)c.append(el("div","meta",t.name));
+  c.append(el("div","msg",t.msg||"-"));
+  if(t.act)c.append(el("div","meta act","Trying to: "+t.act));
+  const m=el("div","meta");
+  m.append(el("span","","fuel "+t.fuel),el("span","",t.world?("world "+t.world.join(", ")):("start x"+t.x+" y"+t.y+" z"+t.z)),el("span","",ago(t.age)));
+  c.append(m);
+  const btns=el("div","btns");
+  if(["working","attention","error"].includes(t.state)){
+    const s=el("button","","Stop");s.title="Ends the program; carve resume continues it later";
+    s.onclick=()=>{if(confirm("Stop "+(t.label||t.name||t.id)+"? It stops at its next report; 'carve resume' continues.")) post("/cmd",{id:t.id,cmd:"stop"})};btns.append(s)}
+  const f=el("button","","Forget");f.onclick=()=>post("/forget",{id:t.id});btns.append(f);
+  c.append(btns);return c}
+async function load(){
+  try{
+    const d=await (await fetch("/fleet",{cache:"no-store"})).json();
+    const ts=d.turtles;rows=ts;grid.replaceChildren(...ts.map(card));renderForeman();refreshInvTab();
+    empty.hidden=ts.length>0||grid.hidden;
+    const n=s=>ts.filter(t=>t.state===s).length;
+    sum.textContent=ts.length+" turtle"+(ts.length===1?"":"s")+" · "+n("working")+" working · "+n("attention")+" need attention · "+n("offline")+" offline";
+  }catch(e){sum.textContent="Lost contact with the Designer."}
+}
+
+/* ---------- 3D map (three.js, loaded the first time this tab opens) ---------- */
+let g3=null,g3loading=false;
+function loadScript(u){return new Promise((ok,bad)=>{const s=document.createElement("script");s.src=u;s.onload=ok;s.onerror=()=>bad(new Error(u));document.head.append(s)})}
+async function start3d(){
+  if(g3){g3.on=true;g3.refresh();return}
+  if(g3loading)return;g3loading=true;
+  const info=document.getElementById("info3");
+  try{await loadScript("/three.min.js");await loadScript("/turtle3d.js")}catch(e){info.textContent="Could not load the 3D library from the Designer ("+e.message+").";g3loading=false;return}
+  const cv3=document.getElementById("cv3"),r3=document.getElementById("r3"),f3=document.getElementById("f3"),home3=document.getElementById("home3"),c3=document.getElementById("c3");
+  const renderer=new THREE.WebGLRenderer({canvas:cv3,antialias:true});
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0x0e1016);scene.fog=new THREE.Fog(0x0e1016,60,220);
+  scene.add(new THREE.AmbientLight(0xffffff,0.62));const sun=new THREE.DirectionalLight(0xffffff,0.75);sun.position.set(30,80,20);scene.add(sun);
+  const camera=new THREE.PerspectiveCamera(55,1,0.1,600);
+  const tgt=new THREE.Vector3(0,64,0);let theta=0.6,phi=1.0,radius=40;
+  const cube=new THREE.BoxGeometry(1,1,1),blockMat=new THREE.MeshLambertMaterial({color:0xffffff});
+  let blocks=null,loadedAt=null,busy3=false,turtles=[],models=new Map(),picked=null,centered=false;
+  const worldGroup=new THREE.Group();scene.add(worldGroup);
+  const col=new THREE.Color();
+  function fit(){const r=cv3.getBoundingClientRect(),d=Math.min(window.devicePixelRatio||1,2);renderer.setPixelRatio(d);renderer.setSize(r.width,r.height,false);camera.aspect=r.width/Math.max(1,r.height);camera.updateProjectionMatrix()}
+  addEventListener("resize",fit);fit();
+  function place(){camera.position.set(tgt.x+radius*Math.sin(phi)*Math.sin(theta),tgt.y+radius*Math.cos(phi),tgt.z+radius*Math.sin(phi)*Math.cos(theta));camera.lookAt(tgt)}
+  const ROT={north:0,east:-Math.PI/2,south:Math.PI,west:Math.PI/2};
+  function label(t){
+    const txt=(t.label||t.name||("#"+t.id)),a=(t.act||t.msg||"").slice(0,46);
+    const c=document.createElement("canvas");c.width=512;c.height=96;const x=c.getContext("2d");
+    x.fillStyle="rgba(10,12,18,.78)";x.beginPath();x.roundRect?x.roundRect(4,4,504,88,14):x.rect(4,4,504,88);x.fill();
+    x.font="bold 34px system-ui";x.fillStyle="#fff";x.textBaseline="top";x.fillText(txt,18,10);
+    x.font="26px system-ui";x.fillStyle="#f0b36a";x.fillText(a,18,54);
+    const tex=new THREE.CanvasTexture(c);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
+    sp.scale.set(6.4,1.2,1);sp.renderOrder=10;return sp}
+  function syncTurtles(){
+    const seen=new Set();
+    for(const t of turtles){
+      seen.add(t.id);let m=models.get(t.id);
+      if(!m){const g=new THREE.Group(),body=CarveTurtle.make(THREE,t.id);body.scale.setScalar(0.96);g.add(body);g.userData={id:t.id,body};scene.add(g);m={g,sig:"",sp:null};models.set(t.id,m)}
+      m.g.position.set(t.world[0]+.5,t.world[1]+.5,t.world[2]+.5);m.g.userData.body.rotation.y=ROT[t.dir||t.facing]||0;
+      const sig=(t.label||t.name)+"|"+(t.act||t.msg||"").slice(0,46);
+      if(sig!==m.sig){if(m.sp){m.g.remove(m.sp);m.sp.material.map.dispose();m.sp.material.dispose()}m.sp=label(t);m.sp.position.set(0,1.5,0);m.g.add(m.sp);m.sig=sig}
+      m.g.userData.row=t}
+    for(const [id,m] of models)if(!seen.has(id)){scene.remove(m.g);models.delete(id)}
+    const keep=f3.value;f3.replaceChildren(new Option("nobody",""),...turtles.map(t=>new Option(t.label||t.name||("#"+t.id),String(t.id))));f3.value=turtles.some(t=>String(t.id)===keep)?keep:"";
+  }
+  function build(d){
+    if(blocks){worldGroup.remove(blocks);blocks.dispose()}
+    const n=d.cells.length;blocks=new THREE.InstancedMesh(cube,blockMat,Math.max(1,n));
+    const cols=d.names.map(nm=>new THREE.Color(colour(nm).startsWith("hsl")?hsl2hex(colour(nm)):colour(nm))),M=new THREE.Matrix4();
+    for(let i=0;i<n;i++){const [x,y,z,k]=d.cells[i];M.makeTranslation(x+.5,y+.5,z+.5);blocks.setMatrixAt(i,M);col.copy(cols[k]||cols[0]);const j=((x*7+y*13+z*17)%5)*0.012;col.offsetHSL(0,0,j-0.024);blocks.setColorAt(i,col)}
+    blocks.count=n;blocks.instanceMatrix.needsUpdate=true;if(blocks.instanceColor)blocks.instanceColor.needsUpdate=true;worldGroup.add(blocks);
+  }
+  function hsl2hex(s){const m=/hsl\((\d+),(\d+)%,(\d+)%\)/.exec(s);const c=new THREE.Color();c.setHSL(m[1]/360,m[2]/100,m[3]/100);return "#"+c.getHexString()}
+  async function refresh(){
+    if(busy3||!g3.on)return;busy3=true;
+    try{
+      const rad=+r3.value,u="/map3d?cx="+Math.round(tgt.x)+"&cy="+Math.round(tgt.y)+"&cz="+Math.round(tgt.z)+"&r="+rad+"&ry="+Math.round(rad*0.8);
+      const d=await (await fetch(u,{cache:"no-store"})).json();
+      turtles=d.turtles;
+      if(!centered&&turtles.length){centered=true;centre();busy3=false;return refresh()}
+      build(d);loadedAt=tgt.clone();syncTurtles();
+      c3.textContent=d.count+" blocks known · showing "+d.cells.length+(d.truncated?" (nearest only)":"")+" · "+turtles.length+" turtle"+(turtles.length===1?"":"s")+" placed";
+    }catch(e){c3.textContent="Lost contact with the Designer."}
+    busy3=false}
+  function centre(){if(!turtles.length)return;const a=turtles.reduce((s,t)=>[s[0]+t.world[0],s[1]+t.world[1],s[2]+t.world[2]],[0,0,0]);tgt.set(a[0]/turtles.length+.5,a[1]/turtles.length+.5,a[2]/turtles.length+.5);radius=18}
+  home3.onclick=()=>{centre();refresh()};r3.onchange=refresh;
+  // orbit / pan / zoom
+  const ptrs={};cv3.addEventListener("contextmenu",e=>e.preventDefault());
+  let moved=0;
+  cv3.addEventListener("pointerdown",e=>{cv3.setPointerCapture(e.pointerId);ptrs[e.pointerId]={x:e.clientX,y:e.clientY,b:e.button,sh:e.shiftKey};moved=0});
+  cv3.addEventListener("pointerup",e=>{const was=ptrs[e.pointerId];delete ptrs[e.pointerId];if(was&&moved<5&&was.b===0)pick(e)});
+  cv3.addEventListener("pointercancel",e=>{delete ptrs[e.pointerId]});
+  cv3.addEventListener("pointermove",e=>{const p=ptrs[e.pointerId];if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y,ids=Object.keys(ptrs);moved+=Math.abs(dx)+Math.abs(dy);
+    if(ids.length>=2){const o=ptrs[ids[0]==e.pointerId?ids[1]:ids[0]],before=Math.hypot(p.x-o.x,p.y-o.y),after=Math.hypot(e.clientX-o.x,e.clientY-o.y);if(before>0)radius=Math.max(4,Math.min(300,radius*before/Math.max(after,1)));p.x=e.clientX;p.y=e.clientY;return}
+    p.x=e.clientX;p.y=e.clientY;
+    if(p.b===2||p.b===1||p.sh){const k=radius*0.0016,r=new THREE.Vector3(),u=new THREE.Vector3();camera.matrix.extractBasis(r,u,new THREE.Vector3());tgt.addScaledVector(r,-dx*k).addScaledVector(u,dy*k);f3.value=""}
+    else{theta-=dx*0.008;phi=Math.max(0.08,Math.min(Math.PI-0.08,phi-dy*0.008))}});
+  cv3.addEventListener("wheel",e=>{e.preventDefault();radius=Math.max(4,Math.min(300,radius*Math.exp(e.deltaY*0.001)))},{passive:false});
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();
+  function pick(e){const r=cv3.getBoundingClientRect();mouse.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects([...models.values()].map(m=>m.g.userData.body),true);
+    if(!hits.length){picked=null;info.textContent="Drag to turn, right-drag or shift-drag to move, scroll or pinch to zoom, click a turtle for details.";return}
+    let o=hits[0].object;while(o&&!o.parent.userData.id)o=o.parent;picked=o&&o.parent?o.parent.userData.id:null;showInfo();if(picked!==null&&rows.some(x=>x.id===picked&&x.inv)){invWanted=picked;show("foreman")}}
+  function showInfo(){const m=models.get(picked);if(!m)return;const t=m.g.userData.row;info.replaceChildren();
+    const b=document.createElement("b");b.textContent=(t.label||t.name||("#"+t.id))+(t.name&&t.label&&t.name!==t.label?" ("+t.name+")":"");info.append(b," · "+(LABEL[t.state]||t.state)+" · fuel "+t.fuel+" · at "+t.world.join(", "));
+    info.append(document.createElement("br"),"Doing: "+(t.msg||"-")+(t.act?"  |  Trying to: "+t.act:""))}
+  g3={on:true,refresh};
+  let last=0;
+  function frame(ts){requestAnimationFrame(frame);if(!g3.on)return;
+    const f=f3.value&&models.get(+f3.value);if(f)tgt.lerp(f.g.position,0.15);
+    if(ts-last>3000){last=ts;refresh()}
+    for(const m of models.values())if(m.sp){const d=camera.position.distanceTo(m.g.position),h=Math.max(0.8,d*0.04);m.sp.scale.set(h*5.33,h,1)}
+    place();if(picked)showInfo();renderer.render(scene,camera)}
+  requestAnimationFrame(frame);refresh();
+}
+load();setInterval(load,2000);
+if(location.hash==="#map")setTimeout(()=>show("map"),0);
+if(location.hash==="#3d")setTimeout(()=>show("3d"),0);
+if(location.hash==="#storage")setTimeout(()=>show("store"),0);
+if(location.hash==="#foreman")setTimeout(()=>show("foreman"),0);
+/* ---------- map ---------- */
+const cv=document.getElementById("cv"),cx=cv.getContext("2d"),tabF=document.getElementById("tabF"),tabM=document.getElementById("tabM"),box=document.getElementById("mapbox");
+const modeSel=document.getElementById("mode"),ylab=document.getElementById("ylab"),ylay=document.getElementById("ylay"),mcount=document.getElementById("mcount");
+let view={cx:0,cz:0,scale:8},data={names:[],cells:[],turtles:[]},fitted=false,busy=false;
+const KNOWN={air:"#26231d",grass_block:"#4f9a3c",dirt:"#7a5632",stone:"#7d7d7d",cobblestone:"#6a6a6a",water:"#3563c9",lava:"#e5650f",sand:"#d8c98b",gravel:"#8c8680",
+ oak_log:"#6b5130",oak_leaves:"#2f6a2a",spruce_log:"#4a3822",spruce_leaves:"#2a4a35",birch_log:"#d3cdb8",birch_leaves:"#58803f",snow:"#f2f6f8",snow_block:"#f2f6f8",ice:"#a8c8f0",
+ bedrock:"#222",deepslate:"#4a4a52",netherrack:"#7a3030",sandstone:"#cdbb85",clay:"#9aa3b3",coal_ore:"#444",iron_ore:"#a58b78",chest:"#a07820",furnace:"#666",crafting_table:"#a0713a"};
+function colour(n){n=String(n).replace(/^minecraft:/,"");if(KNOWN[n])return KNOWN[n];if(n==="unknown")return"#b0b";let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))>>>0;return"hsl("+(h%360)+",38%,46%)"}
+function size(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);return d}
+function span(){const r=cv.getBoundingClientRect();return{w:r.width/view.scale,h:r.height/view.scale}}
+function toScreen(x,z){const r=cv.getBoundingClientRect();return[(x-view.cx)*view.scale+r.width/2,(z-view.cz)*view.scale+r.height/2]}
+function draw(){
+  const d=size();cx.setTransform(d,0,0,d,0,0);const r=cv.getBoundingClientRect();cx.clearRect(0,0,r.width,r.height);
+  const sc=Math.max(1,view.scale),cols=data.names.map(colour);
+  for(const [x,z,y,i] of data.cells){const [sx,sy]=toScreen(x-.5,z-.5);cx.fillStyle=cols[i]||"#b0b";cx.fillRect(sx,sy,sc+.5,sc+.5)}
+  cx.font="12px system-ui";cx.textBaseline="middle";
+  for(const t of data.turtles){const [sx,sy]=toScreen(t.world[0],t.world[2]);
+    cx.beginPath();cx.arc(sx,sy,6,0,6.3);cx.fillStyle=t.state==="offline"?"#8d8778":t.state==="attention"||t.state==="error"?"#e8a53a":"#5cc47a";cx.fill();cx.strokeStyle="#000";cx.lineWidth=2;cx.stroke();
+    const label=(t.label||t.name||("#"+t.id));cx.lineWidth=3;cx.strokeStyle="#000";cx.strokeText(label,sx+9,sy);cx.fillStyle="#fff";cx.fillText(label,sx+9,sy)}
+}
+async function loadMap(){
+  if(busy||!box.classList.contains("on"))return;busy=true;
+  try{const sp=span(),rad=Math.min(120,Math.ceil(Math.max(sp.w,sp.h)/2)+2),mode=modeSel.value;
+    const u="/map?cx="+Math.round(view.cx)+"&cz="+Math.round(view.cz)+"&r="+rad+"&mode="+mode+"&y="+(+ylay.value||0);
+    data=await (await fetch(u,{cache:"no-store"})).json();
+    if(!fitted&&data.turtles.length){view.cx=data.turtles[0].world[0];view.cz=data.turtles[0].world[2];fitted=true;busy=false;loadMap();return}
+    const wt=(data.waiting||[]).map(w=>w.name+" ("+w.count+" blocks)").join(", ");
+    mcount.textContent=data.count+" blocks known · "+data.turtles.length+" turtle"+(data.turtles.length===1?"":"s")+" placed"+(wt?" · WAITING for a start position: "+wt+" (set it in the Designer: Colony tab or Fleet > Set start position)":"");
+    draw();
+  }catch(e){mcount.textContent="Lost contact with the Designer."}
+  busy=false}
+let invWanted=null,invName="";
+function refreshInvTab(){if(!fobox.classList.contains("on")){const t=rows.find(x=>x.inv);invName=t?(t.label||t.name||("Turtle "+t.id)):""}setInvTab()}
+function setInvTab(){tabO.textContent=invName?"Inventory - "+invName:"Inventory"}
+function show(v){v=v===true?"map":v===false?"fleet":v;const map=v==="map",sto=v==="store",d3=v==="3d",fo=v==="foreman";
+  tabO.classList.toggle("on",fo);fobox.classList.toggle("on",fo);if(fo)renderForeman();setInvTab();
+  tabF.classList.toggle("on",v==="fleet");tabM.classList.toggle("on",map);tabS.classList.toggle("on",sto);tab3.classList.toggle("on",d3);
+  box.classList.toggle("on",map);stobox.classList.toggle("on",sto);box3.classList.toggle("on",d3);grid.hidden=v!=="fleet";if(v!=="fleet")empty.hidden=true;if(map){loadMap()}if(sto){loadStore()}if(g3)g3.on=d3;if(d3){start3d()}}
+const tab3=document.getElementById("tab3"),box3=document.getElementById("box3");
+const tabO=document.getElementById("tabO"),fobox=document.getElementById("fobox"),fotitle=document.getElementById("fotitle"),fogrid=document.getElementById("fogrid"),foq=document.getElementById("foq"),fonum=document.getElementById("fonum"),fonq=document.getElementById("fonq");
+const tabS=document.getElementById("tabS"),stobox=document.getElementById("stobox");
+tabF.onclick=()=>show("fleet");tabO.onclick=()=>show("foreman");document.getElementById("fosel").onchange=renderForeman;tabM.onclick=()=>show("map");tabS.onclick=()=>show("store");tab3.onclick=()=>show("3d");
+/* ---------- storage ---------- */
+const find=document.getElementById("find"),itemsEl=document.getElementById("items"),keepersEl=document.getElementById("keepers"),stoMsg=document.getElementById("sto-msg");
+let store={keepers:[],items:[]},typing=false;
+function pretty(n){return n.replace(/^minecraft:/,"").replace(/_/g," ")}
+function renderStore(){
+  wantIcons(store.items.map(e=>e.item),renderStore);
+  keepersEl.replaceChildren(...(store.keepers.length?store.keepers.map(k=>el("span","",(k.name||"Keeper")+" #"+k.id+": "+k.chests+"/"+k.max+" chests, "+k.stacks+"/"+k.slots+" slots used"+(k.waiting?", "+k.waiting+" order"+(k.waiting===1?"":"s")+" waiting":"")+(k.age>90?" (not heard from for "+ago(k.age)+")":"")+(k.spare?"":" - no spare chests"))):[el("span","","No storage keeper has reported yet. Start a Storage keeper job with live reporting on.")]));
+  const q=find.value.trim().toLowerCase(),rows=store.items.filter(e=>!q||e.item.toLowerCase().includes(q)||pretty(e.item).includes(q));
+  itemsEl.replaceChildren(...rows.map(e=>{
+    const tr=el("tr"),inp=el("input"),b=el("button","","Send to pickup chest");
+    inp.type="number";inp.min=1;inp.max=Math.min(4096,e.count);inp.value=Math.min(64,e.count);inp.setAttribute("aria-label","How many "+pretty(e.item));
+    b.onclick=()=>order(e,+inp.value);
+    const td=el("td");td.append(inp," ",b);
+    const nm=el("td"),ic=el("span","ico");
+    if(ICON[e.item])ic.style.backgroundImage="url("+ICON[e.item]+")";else ic.style.background=colour(e.item);
+    nm.append(ic,pretty(e.item));
+    tr.append(nm,el("td","n",String(e.count)),el("td","n",String(Math.ceil(e.count/64))),td);return tr}));
+}
+async function loadStore(){
+  if(!stobox.classList.contains("on")||typing||itemsEl.contains(document.activeElement))return;
+  try{store=await (await fetch("/storage",{cache:"no-store"})).json();renderStore()}catch(e){stoMsg.textContent="Lost contact with the Designer."}}
+async function order(e,count){
+  if(!(count>=1)){stoMsg.textContent="Type how many you want.";return}
+  const r=await fetch("/order",{method:"POST",body:JSON.stringify({item:e.item,count:count})}),t=await r.text();
+  stoMsg.textContent=r.ok?("Asked for "+count+" "+pretty(e.item)+". The keeper brings them to its pickup chest at its next check."):("Not sent: "+t);loadStore()}
+find.oninput=renderStore;find.onfocus=()=>{typing=true};find.onblur=()=>{typing=false};
+setInterval(loadStore,3000);
+modeSel.onchange=()=>{ylab.hidden=modeSel.value!=="slice";loadMap()};ylay.onchange=loadMap;
+document.getElementById("home").onclick=()=>{if(data.turtles.length){view.cx=data.turtles[0].world[0];view.cz=data.turtles[0].world[2];loadMap()}};
+let drag=null;const pts=new Map();let pinch=0;
+cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);drag=[e.clientX,e.clientY,view.cx,view.cz];cv.style.cursor="grabbing"};
+cv.onpointermove=e=>{
+  if(!pts.has(e.pointerId))return;pts.set(e.pointerId,[e.clientX,e.clientY]);
+  if(pts.size===2){const [a,b]=[...pts.values()],dd=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pinch){view.scale=Math.max(1,Math.min(60,view.scale*dd/pinch));draw()}pinch=dd;return}
+  if(drag){view.cx=drag[2]-(e.clientX-drag[0])/view.scale;view.cz=drag[3]-(e.clientY-drag[1])/view.scale;draw()}};
+cv.onpointerup=cv.onpointercancel=e=>{pts.delete(e.pointerId);pinch=0;drag=null;cv.style.cursor="grab";loadMap()};
+cv.onwheel=e=>{e.preventDefault();view.scale=Math.max(1,Math.min(60,view.scale*(e.deltaY<0?1.2:1/1.2)));draw();loadMap()};
+cv.onmousemove=e=>{const r=cv.getBoundingClientRect(),x=Math.round((e.clientX-r.left-r.width/2)/view.scale+view.cx),z=Math.round((e.clientY-r.top-r.height/2)/view.scale+view.cz);
+  const c=data.cells.find(c=>c[0]===x&&c[1]===z);document.getElementById("tip").textContent="x "+x+"  z "+z+(c?"  y "+c[2]+"  "+data.names[c[3]]:"  (unknown)")};
+setInterval(loadMap,3000);addEventListener("resize",draw);
+</script></body></html>

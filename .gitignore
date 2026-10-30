@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+shots/
+tests/gen_*.lua
+# never commit credentials
+*.token
+.env
+config.json
