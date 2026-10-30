@@ -499,7 +499,7 @@ class FleetMixin:
                 self.root.clipboard_clear()
                 self.root.clipboard_append(menu)
                 if everything:
-                    status.set("GitHub is up to date with Carve Designer v%s (%s): %d colony programs%s, and the carve menu. "
+                    status.set("GitHub is up to date with Replicating Turtles v%s (%s): %d colony programs%s, and the carve menu. "
                                "Each program starts with a line naming the version. Turtles fetch it the next time you run them." % (
                                    VERSION, time.strftime("%H:%M"), len(infos), (" + %d others" % extra) if extra else ""))
                 else:

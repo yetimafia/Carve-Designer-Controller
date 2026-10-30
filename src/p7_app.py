@@ -8,7 +8,7 @@ class App(ViewMixin, GitMixin, BlocksMixin, AutoMixin, FleetMixin):
 
     def __init__(self, root, cfg=None):
         self.root = root
-        root.title("Carve Designer v" + VERSION)
+        root.title("Replicating Turtles v" + VERSION)
         sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
         root.minsize(min(900, sw), min(600, sh))
         root.update_idletasks()
@@ -217,7 +217,7 @@ class App(ViewMixin, GitMixin, BlocksMixin, AutoMixin, FleetMixin):
         bar = ttk.Frame(side)
         bar.pack(fill="x", pady=(0, 6))
         self.mode_var = tk.StringVar(value="colony")
-        for text, val in (("Colony (turtles)", "colony"), ("Carve by hand", "carve")):
+        for text, val in (("Replicating turtles", "colony"), ("Carve Tool (dig by hand)", "carve")):
             ttk.Radiobutton(bar, text=text, value=val, variable=self.mode_var, style="Toolbutton",
                             command=lambda: self.set_mode(self.mode_var.get())).pack(side="left", padx=(0, 4))
         row = self.design_row = ttk.Frame(side)

@@ -9,7 +9,7 @@ from urllib.parse import unquote, urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE)); sys.path.insert(0, HERE)
-import carve_designer as cd
+import replicating_turtles as cd
 from lupa import LuaRuntime
 
 SHOTS = os.path.join(os.path.dirname(HERE), "shots")
@@ -1326,8 +1326,8 @@ except cd.UploadError as ex:
     check("reach" in str(ex).lower(), "unreachable host message")
 
 # ======================================================================= real window
-_src = open(os.path.join(HERE, "..", "carve_designer.py"), encoding="utf-8").read()
-check(("Carve Designer v" + cd.VERSION + " - design") in _src.split('"""')[1], "the file's own header names version %s" % cd.VERSION)
+_src = open(os.path.join(HERE, "..", "replicating_turtles.py"), encoding="utf-8").read()
+check(("Replicating Turtles v" + cd.VERSION + " - a colony") in _src.split('"""')[1], "the file's own header names version %s" % cd.VERSION)
 import auto_tests
 auto_tests.run(cd, lua, check, section)
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Carve Designer v@@VERSION@@ - design a dig shape on your PC, put the turtle program on GitHub,
-watch the turtle work.
+Replicating Turtles v@@VERSION@@ - a colony of CC: Tweaked turtles that crafts and starts itself (the Foreman),
+plus the original "Carve Tool": design a dig shape on your PC, put the turtle program on GitHub, watch the turtle work.
 
-Run:   python carve_designer.py        (Python 3.8+ with tkinter; nothing else to install)
+Run:   python replicating_turtles.py        (Python 3.8+ with tkinter; nothing else to install)
 
 What it does
   * Click/drag cells layer by layer to say what a CC: Tweaked mining turtle should dig.
@@ -85,7 +85,7 @@ try:
 except Exception:                      # headless / tkinter missing (tests still work)
     TK_OK = False
 
-VERSION = "8.2"     # bump by 0.1 for every idea/feature batch the user adds
+VERSION = "8.3"     # bump by 0.1 for every idea/feature batch the user adds
 GITHUB_API = "https://api.github.com"
 MAXDIM = 32          # the turtle saves its progress after every step; keep that file small
 DEFAULT_FOLDER = "carve"

@@ -5,12 +5,12 @@ tests and docs are all welcome.
 
 ## Workflow
 
-1. Edit files in `src/` (never `carve_designer.py` directly).
+1. Edit files in `src/` (never `replicating_turtles.py` directly).
 2. `python build.py` to rebuild the single file.
-3. `python -m pyflakes carve_designer.py` and the test suite (see README) must be clean.
+3. `python -m pyflakes replicating_turtles.py` and the test suite (see README) must be clean.
 4. Bump `VERSION` in `src/p1_core.py`: +0.1 for each batch of features, and a further +0.1 when it includes a bug fix.
 5. Add a line to `CHANGELOG.md`.
-6. Commit `src/`, `tests/` **and** the rebuilt `carve_designer.py` (CI checks they match).
+6. Commit `src/`, `tests/` **and** the rebuilt `replicating_turtles.py` (CI checks they match).
 
 ## Comments
 

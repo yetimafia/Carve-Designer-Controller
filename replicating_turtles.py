@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Carve Designer v8.2 - design a dig shape on your PC, put the turtle program on GitHub,
-watch the turtle work.
+Replicating Turtles v8.3 - a colony of CC: Tweaked turtles that crafts and starts itself (the Foreman),
+plus the original "Carve Tool": design a dig shape on your PC, put the turtle program on GitHub, watch the turtle work.
 
-Run:   python carve_designer.py        (Python 3.8+ with tkinter; nothing else to install)
+Run:   python replicating_turtles.py        (Python 3.8+ with tkinter; nothing else to install)
 
 What it does
   * Click/drag cells layer by layer to say what a CC: Tweaked mining turtle should dig.
@@ -85,7 +85,7 @@ try:
 except Exception:                      # headless / tkinter missing (tests still work)
     TK_OK = False
 
-VERSION = "8.2"     # bump by 0.1 for every idea/feature batch the user adds
+VERSION = "8.3"     # bump by 0.1 for every idea/feature batch the user adds
 GITHUB_API = "https://api.github.com"
 MAXDIM = 32          # the turtle saves its progress after every step; keep that file small
 DEFAULT_FOLDER = "carve"
@@ -15150,7 +15150,7 @@ class FleetMixin:
                 self.root.clipboard_clear()
                 self.root.clipboard_append(menu)
                 if everything:
-                    status.set("GitHub is up to date with Carve Designer v%s (%s): %d colony programs%s, and the carve menu. "
+                    status.set("GitHub is up to date with Replicating Turtles v%s (%s): %d colony programs%s, and the carve menu. "
                                "Each program starts with a line naming the version. Turtles fetch it the next time you run them." % (
                                    VERSION, time.strftime("%H:%M"), len(infos), (" + %d others" % extra) if extra else ""))
                 else:
@@ -15368,7 +15368,7 @@ class App(ViewMixin, GitMixin, BlocksMixin, AutoMixin, FleetMixin):
 
     def __init__(self, root, cfg=None):
         self.root = root
-        root.title("Carve Designer v" + VERSION)
+        root.title("Replicating Turtles v" + VERSION)
         sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
         root.minsize(min(900, sw), min(600, sh))
         root.update_idletasks()
@@ -15577,7 +15577,7 @@ class App(ViewMixin, GitMixin, BlocksMixin, AutoMixin, FleetMixin):
         bar = ttk.Frame(side)
         bar.pack(fill="x", pady=(0, 6))
         self.mode_var = tk.StringVar(value="colony")
-        for text, val in (("Colony (turtles)", "colony"), ("Carve by hand", "carve")):
+        for text, val in (("Replicating turtles", "colony"), ("Carve Tool (dig by hand)", "carve")):
             ttk.Radiobutton(bar, text=text, value=val, variable=self.mode_var, style="Toolbutton",
                             command=lambda: self.set_mode(self.mode_var.get())).pack(side="left", padx=(0, 4))
         row = self.design_row = ttk.Frame(side)

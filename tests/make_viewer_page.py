@@ -1,6 +1,6 @@
 import sys, os, random
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import carve_designer as cd
+import replicating_turtles as cd
 out = sys.argv[1]
 # a 9x9x3 hall with a cobblestone floor, glass roof and floor torches, plus a skipped (unconnected) block
 d = cd.Design(9, 9, 4); d.name = "Dining Hall"; d.tx, d.ty, d.tz = 5, 2, 1

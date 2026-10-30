@@ -1,11 +1,13 @@
-# Carve Designer
+# Replicating Turtles
 
-Design a dig shape on your PC, put the turtle program on GitHub, and watch your
-[CC: Tweaked](https://tweaked.cc) turtles work. It also runs a whole "colony" of turtles: a **Foreman** that
+A colony of [CC: Tweaked](https://tweaked.cc) turtles that builds itself: a **Foreman** that
 crafts and starts the others from one chest of materials, tree farms, smelters, crafters, miners, scouts,
 haulers and a self-building storage warehouse, all visible on a live web page.
 
-It is one Python file (`carve_designer.py`, Python 3.8+ with tkinter, nothing else to install).
+The project started as the **Carve Tool**: design a dig shape on your PC, put the turtle program on GitHub and watch the turtle
+work. That is still in the app, as the "Carve Tool (dig by hand)" switch at the top.
+
+It is one Python file (`replicating_turtles.py`, Python 3.8+ with tkinter, nothing else to install).
 
 ![Designer](docs/images/01_blank.png)
 
@@ -22,7 +24,7 @@ up and add what they want. If you can code, you are very welcome here.
 
 ## What it does
 
-* **Dig designer**: click cells layer by layer to say what a mining turtle should dig; shapes, templates,
+* **Carve Tool (the original)**: click cells layer by layer to say what a mining turtle should dig; shapes, templates,
   schematic import, an estimate of fuel and time, a 3D preview and a live view of the real turtle.
 * **Automation programs** that keep running: tree farm, auto smelter (splits work over all furnaces,
   prefers charcoal as fuel), auto crafter, miner, scout, hauler, storage keeper.
@@ -38,10 +40,10 @@ More screenshots are in `docs/images/`.
 ## Quick start
 
 ```
-python carve_designer.py
+python replicating_turtles.py
 ```
 
-1. Make the designs or pick the Colony tab.
+1. Pick "Replicating turtles" (the colony) or "Carve Tool (dig by hand)" at the top.
 2. In the GitHub tab, give it a repository and a token (a token is only saved on your computer if you tick the box).
 3. Press Upload, copy the one-line install command it shows and paste it into a turtle.
 
@@ -55,20 +57,20 @@ app at `http://127.0.0.1:8765`; you may have to allow that address in the mod's 
 | `src/p*.py` | The Python app, in numbered parts (model, icons, simulator, fleet server, GitHub, GUI). |
 | `src/auto_*.lua`, `launcher.lua`, `turtle_job.lua` | The programs that run **on the turtles**. |
 | `src/fleet.html`, `viewer3d.html`, `turtle3d.js` | The web pages the app serves. |
-| `build.py` | Glues `src/` together into the single file `carve_designer.py`. |
-| `carve_designer.py` | The built, ready-to-run program (commit it after every build). |
+| `build.py` | Glues `src/` together into the single file `replicating_turtles.py`. |
+| `replicating_turtles.py` | The built, ready-to-run program (commit it after every build). |
 | `tests/` | A full test suite, including a mock turtle that runs the Lua programs. |
 | `CHANGELOG.md` | What changed in which version. |
 
 ## Building and testing
 
 ```
-python build.py                       # rebuilds carve_designer.py from src/
+python build.py                       # rebuilds replicating_turtles.py from src/
 pip install lupa pillow
 xvfb-run -a -s "-screen 0 1400x900x24" python tests/run_tests.py     # Linux; on Windows/macOS run it without xvfb-run
 ```
 
-Do **not** edit `carve_designer.py` directly: edit `src/` and run `python build.py`.
+Do **not** edit `replicating_turtles.py` directly: edit `src/` and run `python build.py`.
 Every change that is worth a version bumps `VERSION` in `src/p1_core.py` (see CONTRIBUTING.md).
 
 ## Known limits

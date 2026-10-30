@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble src/*.py (+ the .lua templates) into the single-file carve_designer.py."""
+"""Assemble src/*.py (+ the .lua templates) into the single-file replicating_turtles.py."""
 import os
 import re
 import sys
@@ -23,7 +23,7 @@ def build():
     out = re.sub(r"@@INCLUDE:([\w.]+)@@", include, out)
     ver = re.search(r'^VERSION = "([0-9.]+)"', out, re.M).group(1)
     out = out.replace("@@VERSION@@", ver)
-    target = os.path.join(HERE, "carve_designer.py")
+    target = os.path.join(HERE, "replicating_turtles.py")
     with open(target, "w", encoding="utf-8", newline="\n") as f:
         f.write(out)
     compile(out, target, "exec")

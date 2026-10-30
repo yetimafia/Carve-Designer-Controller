@@ -3,6 +3,10 @@
 Versions before 7.3 are only partly recorded: the 2.x-3.x entries come from the feature list at the top of `src/p1_core.py`, and the
 7.x entries before 7.3 are listed together because their exact numbers were not written down.
 
+## 8.3
+* The project is now called Replicating Turtles (window title and file name `replicating_turtles.py`). The original dig designer is the
+  "Carve Tool (dig by hand)" switch. Settings stay in `~/.carve_designer`, and the in-game `carve` menu command is unchanged, so nothing has to be re-set up.
+
 ## 8.2
 * Smelter splits each pile evenly over all furnaces so they run at the same time; charcoal is the preferred fuel, a two-round reserve is
   kept and the surplus goes to the output chest (and on into storage).
