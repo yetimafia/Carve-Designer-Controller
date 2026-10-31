@@ -3,6 +3,12 @@
 Thank you for helping. This project was written mostly by an AI for a player who does not code, so cleanups, fixes,
 tests and docs are all welcome.
 
+## Making your own version
+
+Anyone can **fork** this repository (the Fork button on GitHub) and change their own copy however they like, including a completely
+different design. Nobody except the owner can change this repository's `main` branch; if you want your change included here, open a
+pull request from your fork and the owner will decide.
+
 ## Workflow
 
 1. Edit files in `src/` (never `replicating_turtles.py` directly).
